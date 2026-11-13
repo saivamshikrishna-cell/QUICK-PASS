@@ -87,8 +87,8 @@
     .tracking-card h2 { margin: 0 0 4px; font-size: 19px; }
     .tracking-card p { margin: 0; color: #c1d4ca; font-size: 13px; }
     .tracking-status { align-self: start; padding: 7px 10px; color: #d3f1de; background: #ffffff17; border-radius: 20px; font-size: 11px; font-weight: 750; }
-    .track-route { grid-column: 1 / -1; min-width: 520px; }
-    .track-visual { position: relative; height: 70px; margin: 8px 10px 0; }
+    .track-route { grid-column: 1 / -1; min-width: 0; overflow-x: auto; }
+    .track-visual { position: relative; min-width: 520px; height: 70px; margin: 8px 10px 0; }
     .track-line, .track-progress { position: absolute; top: 15px; left: 0; height: 3px; border-radius: 4px; }
     .track-line { right: 0; background: #567465; }
     .track-progress { width: var(--train-position); background: #6ddd9e; transition: width 1s linear; }
@@ -100,16 +100,18 @@
     .track-stop span { display: block; margin-top: 2px; color: #aac3b5; font-weight: 400; white-space: nowrap; }
     .train-marker { position: absolute; z-index: 2; top: -1px; left: var(--train-position); font-size: 20px; line-height: 1; filter: drop-shadow(0 2px 3px #0006); transform: translateX(-50%); transition: left 1s linear; }
     .tracking-note { grid-column: 1 / -1; color: #bad0c3; font-size: 11px; }
+    .tracking-timestamp { grid-column: 1 / -1; color: #d3f1de !important; font-size: 12px !important; }
     .bookings { display: grid; gap: 12px; }
     .booking-card { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 17px 19px; background: white; border: 1px solid var(--line); border-radius: 12px; }
+    .booking-card > div { min-width: 0; overflow-wrap: anywhere; }
     .booking-card h3 { margin: 0 0 4px; font-size: 14px; }
     .booking-card p { margin: 0; color: var(--muted); font-size: 12px; }
     .cancel-button { padding: 8px 11px; color: #9c3e3e; background: white; border: 1px solid #efd6d6; border-radius: 8px; font-size: 12px; font-weight: 700; }
     .cancel-button:hover { background: #fff5f5; }
     footer { padding: 22px 0; color: var(--muted); border-top: 1px solid var(--line); font-size: 12px; }
-    .modal-backdrop { position: fixed; inset: 0; z-index: 4; display: none; place-items: center; padding: 20px; background: #14251dc0; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 4; display: none; place-items: center; overflow-y: auto; padding: 20px; background: #14251dc0; }
     .modal-backdrop.open { display: grid; }
-    .modal { width: min(460px, 100%); padding: 24px; background: white; border-radius: 16px; box-shadow: 0 25px 70px #0003; }
+    .modal { width: min(460px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; padding: 24px; background: white; border-radius: 16px; box-shadow: 0 25px 70px #0003; }
     .modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
     .modal h2 { margin: 0 0 4px; font-size: 20px; }
     .modal .intro { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
@@ -169,10 +171,11 @@
       h1 { letter-spacing: -1.6px; }
       .hero-copy { font-size: 15px; }
       .search-card { padding: 16px; }
-      .search-grid { grid-template-columns: 1fr 40px 1fr; gap: 10px; }
-      .search-grid .field:nth-of-type(3) { grid-column: 1 / 4; }
-      .search-grid .field:nth-of-type(4) { grid-column: 1 / 3; }
-      .search-grid .primary-button { grid-column: 3 / 4; padding: 0 10px; }
+      .search-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+      .search-grid .field:nth-of-type(3), .search-grid .field:nth-of-type(4),
+      .search-grid .primary-button { grid-column: auto; }
+      .swap-button { justify-self: center; transform: rotate(90deg); }
+      .search-grid .primary-button { width: 100%; }
       .feature-strip { grid-template-columns: 1fr; gap: 9px; }
       .feature { padding: 13px; }
       .train-card { padding: 17px; }
@@ -181,9 +184,13 @@
       .train-bottom { align-items: flex-start; flex-direction: column; }
       .tracking-card { grid-template-columns: 1fr; }
       .tracking-status { grid-row: 2; justify-self: start; }
-      .track-route { overflow-x: auto; min-width: 520px; }
-      .tracking-card { overflow-x: auto; }
-      .booking-card { align-items: flex-start; }
+      .tracking-card { min-width: 0; padding: 18px; }
+      .track-route { width: 100%; }
+      .booking-card { align-items: stretch; flex-direction: column; }
+      .booking-card .cancel-button { min-height: 42px; }
+      .section-heading { align-items: flex-start; flex-direction: column; }
+      .modal-backdrop { align-items: start; padding: 10px; }
+      .modal { width: 100%; max-height: calc(100vh - 20px); padding: 18px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *:before, *:after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -234,7 +241,11 @@
           </div>
           <div class="field">
             <label for="travelClass">Class</label>
-            <select id="travelClass"><option value="3A">AC 3 Tier (3A)</option></select>
+            <select id="travelClass" required>
+              <option value="general">General (GEN)</option>
+              <option value="sleeper">Sleeper (SL)</option>
+              <option value="3A" selected>AC 3 Tier (3A)</option>
+            </select>
           </div>
           <button class="primary-button" type="submit">Find trains</button>
         </form>
@@ -263,6 +274,7 @@
       <div class="tracking-card">
         <div><h2>12750 · Shirdi–Hyderabad Express</h2><p id="trackingSummary">Tracking sample train · Next stop: Kopargaon</p></div>
         <span class="tracking-status" id="trackingBadge">● SIMULATED · RUNNING</span>
+        <p class="tracking-timestamp" id="trackingTimestamp" aria-live="polite"></p>
         <div class="track-route" id="trackRoute"></div>
         <div class="tracking-note">Simulated train motion for this prototype. Live GPS position and arrival times require an authorized railway data provider.</div>
       </div>
@@ -304,7 +316,9 @@
         <div><span>Train</span><strong id="ticketTrain"></strong></div>
         <div><span>Journey</span><strong id="ticketRoute"></strong></div>
         <div><span>Date</span><strong id="ticketDate"></strong></div>
+        <div><span>Travel class</span><strong id="ticketClass"></strong></div>
         <div><span>Seat</span><strong id="ticketSeat"></strong></div>
+        <div><span>Booked at</span><strong id="ticketBookedAt"></strong></div>
         <div><span>Payment</span><strong id="ticketPayment"></strong></div>
         <div><span>Demo amount</span><strong id="ticketAmount"></strong></div>
       </div>
@@ -331,12 +345,17 @@
       ];
       const trains = [{ number: "12750", name: "Shirdi–Hyderabad Express", departure: "16:10", arrival: "08:00", duration: "15h 50m", fare: 865 }];
       const paymentLabels = { upi: "UPI (simulated)", card: "Debit / credit card (simulated)", netbanking: "Net banking (simulated)" };
-      const simulationDuration = 120000;
+      const classLabels = { general: "General (GEN)", sleeper: "Sleeper (SL)", "3A": "AC 3 Tier (3A)" };
+      const seatInventory = {
+        general: { prefix: "G", count: 12, farePercent: 55 },
+        sleeper: { prefix: "S1", count: 12, farePercent: 80 },
+        "3A": { prefix: "B1", count: 12, farePercent: 100 }
+      };
       const bookingsStorageKey = "railway-demo-bookings-v1";
       const $ = (id) => document.getElementById(id);
       const state = { bookings: loadLocalBookings(), reservations: [] };
       let selectedTrain = null;
-      let lastSearch = { from: 0, to: 8, date: "" };
+      let lastSearch = { from: 0, to: 8, date: "", travelClass: "3A" };
       let toastTimer;
 
       async function requestJSON(url, options) {
@@ -365,8 +384,13 @@
             Number.isInteger(booking.to) && booking.to > booking.from && booking.to < stations.length &&
             typeof booking.date === "string" &&
             typeof booking.seat === "string" &&
+            (!booking.travelClass || Object.prototype.hasOwnProperty.call(classLabels, booking.travelClass)) &&
             Object.prototype.hasOwnProperty.call(paymentLabels, booking.paymentMethod)
-          );
+          ).map((booking) => ({
+            ...booking,
+            travelClass: booking.travelClass || "3A",
+            bookedAt: typeof booking.bookedAt === "string" ? booking.bookedAt : ""
+          }));
         } catch (error) {
           console.warn("Could not load saved demo tickets.", error);
           return [];
@@ -387,6 +411,37 @@
         return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
       }
 
+      function scheduledStops(journeyDate) {
+        const [year, month, day] = journeyDate.split("-").map(Number);
+        let dayOffset = 0;
+        let previousMinutes = -1;
+        return stations.map((station) => {
+          const [hours, minutes] = station.time.split(":").map(Number);
+          const minutesAfterMidnight = hours * 60 + minutes;
+          if (previousMinutes >= 0 && minutesAfterMidnight < previousMinutes) dayOffset += 1;
+          previousMinutes = minutesAfterMidnight;
+          const scheduledAt = Date.UTC(year, month - 1, day + dayOffset, hours, minutes) - 330 * 60 * 1000;
+          return { ...station, scheduledAt: new Date(scheduledAt) };
+        });
+      }
+
+      function formatTrainDateTime(value) {
+        return new Intl.DateTimeFormat("en-IN", {
+          timeZone: "Asia/Kolkata",
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(value) + " IST";
+      }
+
+      function formatLocalDateTime(value) {
+        if (!value) return "Not available";
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? "Not available" : parsed.toLocaleString();
+      }
+
       function fillStationOptions() {
         const from = $("fromStation");
         const to = $("toStation");
@@ -399,13 +454,20 @@
         to.value = "8";
         $("journeyDate").value = todayISO();
         $("journeyDate").min = todayISO();
+        $("travelClass").value = "3A";
+        lastSearch.date = todayISO();
       }
 
-      function availableSeats(from, to, date) {
-        const seatNumbers = Array.from({ length: 12 }, (_, index) => "B1-" + String(index + 1).padStart(2, "0"));
+      function availableSeats(from, to, date, travelClass) {
+        const inventory = seatInventory[travelClass] || seatInventory["3A"];
+        const seatNumbers = Array.from(
+          { length: inventory.count },
+          (_, index) => inventory.prefix + "-" + String(index + 1).padStart(2, "0")
+        );
         return seatNumbers.filter((seat) => !state.reservations.some((reservation) =>
           reservation.status === "confirmed" &&
           reservation.date === date &&
+          (reservation.travelClass || "3A") === travelClass &&
           reservation.seat === seat &&
           from < reservation.to && reservation.from < to
         ));
@@ -417,35 +479,39 @@
         })[character]);
       }
 
-      function fareForSegment(from, to) {
-        return Math.max(120, Math.floor(trains[0].fare * (to - from) / (stations.length - 1) + 0.5));
+      function fareForSegment(from, to, travelClass) {
+        const farePercent = seatInventory[travelClass].farePercent;
+        return Math.max(50, Math.floor(trains[0].fare * farePercent / 100 * (to - from) / (stations.length - 1) + 0.5));
       }
 
-      function renderTrains(from, to, date) {
-        lastSearch = { from, to, date };
+      function renderTrains(from, to, date, travelClass) {
+        travelClass = travelClass || $("travelClass").value || "3A";
+        lastSearch = { from, to, date, travelClass };
         const start = stations[from];
         const end = stations[to];
         const list = $("resultsList");
+        const scheduled = scheduledStops(date);
         $("resultsTitle").textContent = "Trains to " + end.short;
         $("resultsSubtitle").textContent = start.name + " → " + end.name + " · " + new Date(date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-        const seats = availableSeats(from, to, date);
+        const seats = availableSeats(from, to, date, travelClass);
         if (!seats.length) {
-          list.innerHTML = '<div class="empty-state">No seats are currently available for this route segment and date. Try another date.</div>';
+          list.innerHTML = '<div class="empty-state">No ' + escapeHTML(classLabels[travelClass]) + ' seats are currently available for this route segment and date. Try another class or date.</div>';
           return;
         }
         list.innerHTML = trains.map((train) => `
           <article class="train-card">
             <div class="train-top"><div class="train-name">${train.name}<span class="train-meta">${train.number} · Daily service</span></div><span class="badge"><span class="dot"></span> Seats available</span></div>
-            <div class="timeline"><div class="time-block"><strong>${start.time}</strong><span>${start.short}</span></div><div class="journey-line">${from === 0 && to === 8 ? train.duration : "Route segment"}<div class="line"></div>${to - from} stop${to - from === 1 ? "" : "s"}</div><div class="time-block" style="text-align:right"><strong>${end.time}</strong><span>${end.short}</span></div></div>
-            <div class="train-bottom"><div class="availability">AC 3 Tier (3A) <span>${seats.length} seats available</span><span class="fare">Demo fare ₹${fareForSegment(from, to)}</span></div><button class="book-button" type="button" data-train="${train.number}" data-from="${from}" data-to="${to}" data-date="${date}">Select train</button></div>
+            <div class="timeline"><div class="time-block"><strong>${start.time}</strong><span>${start.short}<br>${formatTrainDateTime(scheduled[from].scheduledAt)}</span></div><div class="journey-line">${from === 0 && to === 8 ? train.duration : "Route segment"}<div class="line"></div>${to - from} stop${to - from === 1 ? "" : "s"}</div><div class="time-block" style="text-align:right"><strong>${end.time}</strong><span>${end.short}<br>${formatTrainDateTime(scheduled[to].scheduledAt)}</span></div></div>
+            <div class="train-bottom"><div class="availability">${escapeHTML(classLabels[travelClass])} <span>${seats.length} seats available</span><span class="fare">Demo fare ₹${fareForSegment(from, to, travelClass)}</span></div><button class="book-button" type="button" data-train="${train.number}" data-from="${from}" data-to="${to}" data-date="${date}" data-travel-class="${travelClass}">Select train</button></div>
           </article>`).join("");
         list.querySelectorAll(".book-button").forEach((button) => button.addEventListener("click", () => openBooking(button)));
       }
 
       function renderSeatMap() {
         if (!selectedTrain) return;
-        const { from, to, date } = selectedTrain;
-        const available = new Set(availableSeats(from, to, date));
+        const { from, to, date, travelClass } = selectedTrain;
+        const inventory = seatInventory[travelClass];
+        const available = new Set(availableSeats(from, to, date, travelClass));
         if (selectedTrain.seat && !available.has(selectedTrain.seat)) {
           selectedTrain.seat = null;
           $("seatSelectionStatus").textContent = "That seat was just booked. Please choose another.";
@@ -453,7 +519,7 @@
         const layout = [1, 2, null, 3, 4, 5, 6, null, 7, 8, 9, 10, null, 11, 12];
         $("seatGrid").innerHTML = layout.map((number) => {
           if (number === null) return "";
-          const seat = "B1-" + String(number).padStart(2, "0");
+          const seat = inventory.prefix + "-" + String(number).padStart(2, "0");
           const isAvailable = available.has(seat);
           const isSelected = selectedTrain.seat === seat;
           return `<button type="button" class="seat-option${isAvailable ? "" : " taken"}${isSelected ? " selected" : ""}" data-seat="${seat}" aria-pressed="${isSelected}" aria-label="Seat ${seat}, ${isAvailable ? (isSelected ? "selected" : "available") : "booked"}"${isAvailable ? "" : " disabled"}>${String(number).padStart(2, "0")}</button>`;
@@ -471,24 +537,25 @@
         } else if (available.size === 0) {
           $("seatSelectionStatus").textContent = "No seats are available for this segment.";
         }
-        $("seatHint").textContent = available.size + " seat" + (available.size === 1 ? "" : "s") + " available for your whole segment.";
+        $("seatHint").textContent = classLabels[travelClass] + " · " + available.size + " seat" + (available.size === 1 ? "" : "s") + " available for your whole segment.";
       }
 
       function openBooking(button) {
         const from = Number(button.dataset.from);
         const to = Number(button.dataset.to);
         const date = button.dataset.date;
-        const seats = availableSeats(from, to, date);
+        const travelClass = button.dataset.travelClass || "3A";
+        const seats = availableSeats(from, to, date, travelClass);
         if (!seats.length) {
           showToast("Sorry, those seats were just taken. Search again for the latest availability.");
-          renderTrains(from, to, date);
+          renderTrains(from, to, date, travelClass);
           return;
         }
-        selectedTrain = { number: button.dataset.train, from, to, date, seat: seats[0] };
-        $("bookingSummary").textContent = stations[from].short + " → " + stations[to].short + " · " + new Date(date + "T12:00:00").toLocaleDateString();
+        selectedTrain = { number: button.dataset.train, from, to, date, travelClass, seat: seats[0] };
+        $("bookingSummary").textContent = stations[from].short + " → " + stations[to].short + " · " + classLabels[travelClass] + " · " + new Date(date + "T12:00:00").toLocaleDateString();
         $("seatSelectionStatus").textContent = "";
         renderSeatMap();
-        $("payButton").textContent = "Confirm demo payment · ₹" + fareForSegment(from, to);
+        $("payButton").textContent = "Confirm demo payment · ₹" + fareForSegment(from, to, travelClass);
         $("bookingModal").classList.add("open");
         $("passengerName").focus();
       }
@@ -507,7 +574,9 @@
         $("ticketTrain").textContent = booking.train + " · Shirdi–Hyderabad Express";
         $("ticketRoute").textContent = stations[booking.from].name + " → " + stations[booking.to].name;
         $("ticketDate").textContent = new Date(booking.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+        $("ticketClass").textContent = classLabels[booking.travelClass || "3A"];
         $("ticketSeat").textContent = booking.seat;
+        $("ticketBookedAt").textContent = formatLocalDateTime(booking.bookedAt);
         $("ticketPayment").textContent = paymentLabels[booking.paymentMethod];
         $("ticketAmount").textContent = "₹" + booking.fare;
         $("ticketConfirmation").classList.add("open");
@@ -525,7 +594,7 @@
       function renderBookings() {
         const bookings = state.bookings;
         $("bookingsList").innerHTML = bookings.length ? bookings.map((booking) => `
-          <article class="booking-card"><div><h3>${escapeHTML(booking.name)} · ${stations[booking.from].short} → ${stations[booking.to].short}</h3><p>${escapeHTML(booking.train)} · ${escapeHTML(booking.seat)} · ${new Date(booking.date + "T12:00:00").toLocaleDateString()} · ${escapeHTML(booking.id)} · ${escapeHTML(paymentLabels[booking.paymentMethod] || "Demo payment")}</p></div><button class="cancel-button" type="button" data-id="${escapeHTML(booking.id)}">Cancel ticket</button></article>`).join("") : '<div class="empty-state">No bookings yet. Choose a train to book your first journey.</div>';
+          <article class="booking-card"><div><h3>${escapeHTML(booking.name)} · ${stations[booking.from].short} → ${stations[booking.to].short}</h3><p>${escapeHTML(booking.train)} · ${escapeHTML(classLabels[booking.travelClass || "3A"])} · ${escapeHTML(booking.seat)} · Journey ${new Date(booking.date + "T12:00:00").toLocaleDateString()} · Booked ${escapeHTML(formatLocalDateTime(booking.bookedAt))} · ${escapeHTML(booking.id)}</p></div><button class="cancel-button" type="button" data-id="${escapeHTML(booking.id)}">Cancel ticket</button></article>`).join("") : '<div class="empty-state">No bookings yet. Choose a train to book your first journey.</div>';
         $("bookingsList").querySelectorAll(".cancel-button").forEach((button) => button.addEventListener("click", () => cancelBooking(button.dataset.id)));
       }
 
@@ -533,6 +602,7 @@
         try {
           const booking = state.bookings.find((item) => item.id === id);
           if (!booking) return;
+          if (!window.confirm("Cancel the " + (classLabels[booking.travelClass || "3A"]) + " ticket for " + stations[booking.from].short + " → " + stations[booking.to].short + "?")) return;
           await requestJSON("/api/bookings/" + encodeURIComponent(id), { method: "DELETE" });
           state.bookings = state.bookings.filter((item) => item.id !== id);
           saveLocalBookings();
@@ -541,7 +611,7 @@
           await refreshState();
           const from = Number($("fromStation").value);
           const to = Number($("toStation").value);
-          renderTrains(from < to ? from : 0, from < to ? to : stations.length - 1, $("journeyDate").value);
+          renderTrains(from < to ? from : 0, from < to ? to : stations.length - 1, $("journeyDate").value, $("travelClass").value);
         } catch (error) {
           showToast(error.message);
         }
@@ -564,24 +634,56 @@
 
       function renderTracking() {
         const route = $("trackRoute");
-        const arrivalPause = 8000;
-        const cycleDuration = simulationDuration + arrivalPause;
-        const elapsed = Date.now() % cycleDuration;
-        const routeProgress = Math.min(elapsed / simulationDuration, 1) * (stations.length - 1);
-        const currentIndex = Math.min(Math.floor(routeProgress), stations.length - 1);
-        const fraction = Math.min(routeProgress - currentIndex, 1);
-        const position = routeProgress / (stations.length - 1) * 100;
-        const secondsToNext = Math.ceil((1 - fraction) * simulationDuration / (stations.length - 1) / 1000);
-        route.style.setProperty("--train-position", position + "%");
-        route.innerHTML = `<div class="track-visual"><div class="track-line"></div><div class="track-progress"></div><span class="train-marker" role="img" aria-label="Simulated train position">🚆</span>${stations.map((station, index) => `<div class="track-stop ${index < currentIndex ? "passed" : ""} ${index === currentIndex ? "current" : ""}" style="--stop-position:${index / (stations.length - 1) * 100}%" ${index === currentIndex ? 'aria-current="step"' : ""}>${station.short}<span>${station.time}</span></div>`).join("")}</div>`;
-        const current = stations[currentIndex];
-        if (currentIndex === stations.length - 1) {
-          $("trackingSummary").textContent = "Simulated train has arrived at " + current.name + ".";
-          $("trackingBadge").textContent = "✓ ARRIVED · DEMO";
+        const journeyDate = $("journeyDate").value || todayISO();
+        const schedule = scheduledStops(journeyDate);
+        const now = new Date();
+        const departure = schedule[0].scheduledAt;
+        const arrival = schedule[schedule.length - 1].scheduledAt;
+        let routeProgress = 0;
+        let currentIndex = 0;
+        let fraction = 0;
+        let summary;
+        let badge;
+        if (now < departure) {
+          summary = "Scheduled to depart " + formatTrainDateTime(departure) + " · Next stop: " + stations[1].name;
+          badge = "◷ SCHEDULED";
+        } else if (now >= arrival) {
+          routeProgress = stations.length - 1;
+          currentIndex = stations.length - 1;
+          summary = "Scheduled arrival time reached at " + stations[currentIndex].name + ".";
+          badge = "✓ ARRIVED · DEMO";
         } else {
-          $("trackingSummary").textContent = "Passed " + current.name + " · Next stop: " + stations[currentIndex + 1].name + " in about " + secondsToNext + "s (simulated)";
-          $("trackingBadge").textContent = "● SIMULATED · RUNNING";
+          for (let index = 0; index < schedule.length - 1; index += 1) {
+            const segmentStart = schedule[index].scheduledAt.getTime();
+            const segmentEnd = schedule[index + 1].scheduledAt.getTime();
+            if (now.getTime() >= segmentStart && now.getTime() < segmentEnd) {
+              currentIndex = index;
+              fraction = (now.getTime() - segmentStart) / (segmentEnd - segmentStart);
+              routeProgress = index + fraction;
+              break;
+            }
+          }
+          summary = "Between " + stations[currentIndex].name + " and " + stations[currentIndex + 1].name +
+            " · Next stop " + formatTrainDateTime(schedule[currentIndex + 1].scheduledAt);
+          badge = "● SCHEDULE-BASED · RUNNING";
         }
+        const position = routeProgress / (stations.length - 1) * 100;
+        route.style.setProperty("--train-position", position + "%");
+        if (!route.dataset.ready) {
+          route.innerHTML = `<div class="track-visual"><div class="track-line"></div><div class="track-progress"></div><span class="train-marker" role="img" aria-label="Schedule-based train position">🚆</span>${stations.map((station, index) => `<div class="track-stop" style="--stop-position:${index / (stations.length - 1) * 100}%">${station.short}<span>${station.time}</span></div>`).join("")}</div>`;
+          route.dataset.ready = "true";
+        }
+        route.querySelectorAll(".track-stop").forEach((stop, index) => {
+          stop.classList.toggle("passed", index < currentIndex);
+          stop.classList.toggle("current", index === currentIndex);
+          if (index === currentIndex) stop.setAttribute("aria-current", "step");
+          else stop.removeAttribute("aria-current");
+        });
+        $("trackingSummary").textContent = summary;
+        $("trackingBadge").textContent = badge;
+        $("trackingTimestamp").textContent = "Journey " +
+          new Date(journeyDate + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }) +
+          " · Updated " + formatTrainDateTime(now);
       }
 
       async function refreshLiveAvailability() {
@@ -591,7 +693,7 @@
           if (selectedTrain && $("bookingModal").classList.contains("open") && !$("payButton").disabled) {
             renderSeatMap();
           } else if ($("myBookings").hidden) {
-            renderTrains(lastSearch.from, lastSearch.to, lastSearch.date);
+            renderTrains(lastSearch.from, lastSearch.to, lastSearch.date, lastSearch.travelClass);
           } else {
             renderBookings();
           }
@@ -615,8 +717,24 @@
           showToast("Please choose a destination that comes after your starting station.");
           return;
         }
-        renderTrains(from, to, $("journeyDate").value);
+        renderTrains(from, to, $("journeyDate").value, $("travelClass").value);
         $("trainResults").scrollIntoView({ behavior: "smooth" });
+      });
+
+      $("journeyDate").addEventListener("change", () => {
+        renderTracking();
+        if ($("myBookings").hidden) {
+          const from = Number($("fromStation").value);
+          const to = Number($("toStation").value);
+          if (from < to) renderTrains(from, to, $("journeyDate").value, $("travelClass").value);
+        }
+      });
+      $("travelClass").addEventListener("change", () => {
+        if ($("myBookings").hidden) {
+          const from = Number($("fromStation").value);
+          const to = Number($("toStation").value);
+          if (from < to) renderTrains(from, to, $("journeyDate").value, $("travelClass").value);
+        }
       });
 
       $("swapStations").addEventListener("click", () => {
@@ -630,7 +748,7 @@
         $("fromStation").value = "0";
         $("toStation").value = String(stations.length - 1);
         $("journeyDate").value = todayISO();
-        renderTrains(0, stations.length - 1, $("journeyDate").value);
+        renderTrains(0, stations.length - 1, $("journeyDate").value, $("travelClass").value);
       });
       $("myBookingsButton").addEventListener("click", showBookings);
       $("hideBookingsButton").addEventListener("click", showTrains);
@@ -650,7 +768,7 @@
           showToast("Choose an available seat before continuing.");
           return;
         }
-        const { from, to, date, number } = selectedTrain;
+        const { from, to, date, number, travelClass } = selectedTrain;
         const payButton = $("payButton");
         const closeButton = $("closeModal");
         payButton.disabled = true;
@@ -667,6 +785,7 @@
               from,
               to,
               date,
+              travelClass,
               seat: selectedTrain.seat,
               name: $("passengerName").value.trim(),
               age: Number($("passengerAge").value),
@@ -677,13 +796,13 @@
           state.reservations.push(booking);
           saveLocalBookings();
           closeModal(true);
-          renderTrains(from, to, date);
+          renderTrains(from, to, date, travelClass);
           showTicketConfirmation(booking);
         } catch (error) {
           showToast(error.message);
           try {
             await refreshState();
-            renderTrains(from, to, date);
+            renderTrains(from, to, date, travelClass);
             renderSeatMap();
           } catch (refreshError) {
             showToast(error.message + " " + refreshError.message);
@@ -692,7 +811,7 @@
           payButton.disabled = false;
           payButton.classList.remove("is-processing");
           closeButton.disabled = false;
-          if (selectedTrain) payButton.textContent = "Confirm demo payment · ₹" + fareForSegment(from, to);
+          if (selectedTrain) payButton.textContent = "Confirm demo payment · ₹" + fareForSegment(from, to, travelClass);
         }
       });
 
@@ -704,7 +823,7 @@
 
       refreshState()
         .then(() => {
-          renderTrains(0, stations.length - 1, $("journeyDate").value);
+          renderTrains(0, stations.length - 1, $("journeyDate").value, $("travelClass").value);
           $("availabilityLiveStatus").textContent = "Seat availability updated just now · refreshes every 15 seconds";
         })
         .catch((error) => {

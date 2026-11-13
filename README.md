@@ -62,16 +62,24 @@ payment provider.
 - Seat availability is checked for the exact route segment and journey date.
   A seat booked from Manmad to Hyderabad can also be booked from Shirdi to
   Manmad because the journeys do not overlap.
+- Search supports General (GEN), Sleeper (SL), and AC 3 Tier (3A) demo classes.
+  Each class has a separate seat inventory and indicative demo fare; General is
+  treated as reserved seating in this prototype, not real unreserved rail travel.
 - The seat map marks booked and available seats; the server validates the
   selected seat again when the demo checkout is submitted. Availability refreshes
   every 15 seconds while the page is open.
-- Booking and cancellation update the configured SQLite or PostgreSQL inventory.
+- Booking records the selected journey date, class, and server booking timestamp.
+  Ticket cancellation requires confirmation and releases that class's seat
+  segment in the configured SQLite or PostgreSQL inventory.
 - Checkout offers simulated UPI, card, and net banking methods. It does not
   collect payment credentials or process real money. Successful demo checkouts
   show a printable ticket confirmation with the PNR and allocated seat.
-- The browser's train marker moves along sample stops as a visual simulation.
-  Real train location, schedules, fares, payment processing, and ticket
-  issuance require authorized providers and are not included in this demo.
+- Train tracking shows a schedule-based position and current update time for
+  the selected journey date. It is not a GPS feed: real train location,
+  schedules, fares, payment processing, and ticket issuance require authorized
+  providers and are not included in this demo.
+- The booking form, seat map, tracking route, and ticket list adapt to narrow
+  mobile screens.
 
 This is a prototype, not an official ticketing service. It does not
 include user accounts, a real payment gateway, or live train location data.

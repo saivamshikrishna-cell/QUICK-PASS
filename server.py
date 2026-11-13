@@ -2,7 +2,7 @@
 """QUICK PASS booking demo with SQLite locally and PostgreSQL when hosted."""
 
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -20,6 +20,7 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
 HOST = os.environ.get("HOST", "0.0.0.0" if DATABASE_URL else "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
+INDIA_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
 TRAIN_NUMBER = "12750"
 STATIONS = [
     "Sainagar Shirdi",
@@ -32,7 +33,34 @@ STATIONS = [
     "Secunderabad Junction",
     "Hyderabad Deccan",
 ]
-SEATS = [f"B1-{number:02d}" for number in range(1, 13)]
+SEAT_CLASSES = {
+    "general": {
+        "label": "General (GEN)",
+        "prefix": "G",
+        "count": 12,
+        "fare_percent": 55,
+    },
+    "sleeper": {
+        "label": "Sleeper (SL)",
+        "prefix": "S1",
+        "count": 12,
+        "fare_percent": 80,
+    },
+    "3A": {
+        "label": "AC 3 Tier (3A)",
+        "prefix": "B1",
+        "count": 12,
+        "fare_percent": 100,
+    },
+}
+SEATS_BY_CLASS = {
+    class_code: [
+        f"{seat_class['prefix']}-{number:02d}"
+        for number in range(1, seat_class["count"] + 1)
+    ]
+    for class_code, seat_class in SEAT_CLASSES.items()
+}
+SEATS = SEATS_BY_CLASS["3A"]
 PAYMENT_METHODS = {
     "upi": "UPI (simulated)",
     "card": "Debit / credit card (simulated)",
@@ -50,6 +78,10 @@ class RequestError(Exception):
     def __init__(self, message, status=400):
         super().__init__(message)
         self.status = status
+
+
+def today_in_india():
+    return datetime.now(INDIA_TIMEZONE).date()
 
 
 def connect_database():
@@ -98,6 +130,8 @@ def initialize_database():
                 passenger_name TEXT NOT NULL,
                 passenger_age INTEGER,
                 payment_method TEXT NOT NULL DEFAULT 'demo',
+                travel_class TEXT NOT NULL DEFAULT '3A',
+                created_at TEXT NOT NULL DEFAULT '',
                 status TEXT NOT NULL,
                 is_sample INTEGER NOT NULL DEFAULT 0
             )
@@ -123,6 +157,16 @@ def initialize_database():
                 "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS "
                 "payment_method TEXT NOT NULL DEFAULT 'demo'",
             )
+            execute(
+                connection,
+                "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS "
+                "travel_class TEXT NOT NULL DEFAULT '3A'",
+            )
+            execute(
+                connection,
+                "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS "
+                "created_at TEXT NOT NULL DEFAULT ''",
+            )
         else:
             columns = {
                 row["name"]
@@ -136,10 +180,31 @@ def initialize_database():
                     "ALTER TABLE reservations ADD COLUMN "
                     "payment_method TEXT NOT NULL DEFAULT 'demo'",
                 )
+            if "travel_class" not in columns:
+                execute(
+                    connection,
+                    "ALTER TABLE reservations ADD COLUMN "
+                    "travel_class TEXT NOT NULL DEFAULT '3A'",
+                )
+            if "created_at" not in columns:
+                execute(
+                    connection,
+                    "ALTER TABLE reservations ADD COLUMN "
+                    "created_at TEXT NOT NULL DEFAULT ''",
+                )
+        execute(
+            connection,
+            """
+            CREATE INDEX IF NOT EXISTS reservations_class_segment_lookup
+            ON reservations
+                (train, journey_date, travel_class, seat, status, from_station, to_station)
+            """,
+        )
+        sample_date = today_in_india()
         examples = [
-            (f"sample-manmad-hyderabad-{date.today().isoformat()}", "B1-01", 2, 8),
-            (f"sample-jalgaon-secunderabad-{date.today().isoformat()}", "B1-02", 3, 7),
-            (f"sample-kopargaon-manmad-{date.today().isoformat()}", "B1-03", 1, 2),
+            (f"sample-manmad-hyderabad-{sample_date.isoformat()}", "B1-01", 2, 8),
+            (f"sample-jalgaon-secunderabad-{sample_date.isoformat()}", "B1-02", 3, 7),
+            (f"sample-kopargaon-manmad-{sample_date.isoformat()}", "B1-03", 1, 2),
         ]
         for booking_id, seat, start, end in examples:
             execute(
@@ -157,7 +222,7 @@ def initialize_database():
                     seat,
                     start,
                     end,
-                    date.today().isoformat(),
+                    sample_date.isoformat(),
                     "Sample passenger",
                 ),
             )
@@ -167,7 +232,8 @@ def get_state():
     with database() as connection:
         reservations = execute(connection,
             """
-            SELECT id, train, seat, from_station, to_station, journey_date, status
+            SELECT id, train, seat, from_station, to_station, journey_date,
+                   travel_class, status
             FROM reservations
             WHERE status = 'confirmed'
             """
@@ -180,6 +246,7 @@ def get_state():
             "from": row["from_station"],
             "to": row["to_station"],
             "date": row["journey_date"],
+            "travelClass": row["travel_class"],
             "status": row["status"],
         }
 
@@ -209,7 +276,7 @@ def validate_booking(payload):
         raise RequestError("Enter a valid journey date.")
     if parsed_date.isoformat() != journey_date:
         raise RequestError("Journey date must use YYYY-MM-DD format.")
-    if parsed_date < date.today():
+    if parsed_date < today_in_india():
         raise RequestError("Journey date cannot be in the past.")
 
     name = payload.get("name")
@@ -226,13 +293,28 @@ def validate_booking(payload):
     if not isinstance(payment_method, str) or payment_method not in PAYMENT_METHODS:
         raise RequestError("Choose one of the available demo payment methods.")
 
+    travel_class = payload.get("travelClass", "3A")
+    if not isinstance(travel_class, str) or travel_class not in SEAT_CLASSES:
+        raise RequestError("Choose General, Sleeper, or AC 3 Tier.")
+
     requested_seat = payload.get("seat")
     if requested_seat is not None and (
-        not isinstance(requested_seat, str) or requested_seat not in SEATS
+        not isinstance(requested_seat, str)
+        or requested_seat not in SEATS_BY_CLASS[travel_class]
     ):
-        raise RequestError("Choose a valid seat from the seat map.")
+        raise RequestError("Choose a valid seat for the selected travel class.")
 
-    return train, start, end, journey_date, name.strip(), age, payment_method, requested_seat
+    return (
+        train,
+        start,
+        end,
+        journey_date,
+        name.strip(),
+        age,
+        payment_method,
+        travel_class,
+        requested_seat,
+    )
 
 
 def create_booking(payload):
@@ -244,6 +326,7 @@ def create_booking(payload):
         name,
         age,
         payment_method,
+        travel_class,
         requested_seat,
     ) = validate_booking(payload)
     with database() as connection:
@@ -255,31 +338,57 @@ def create_booking(payload):
             )
         else:
             connection.execute("BEGIN IMMEDIATE")
-        candidate_seats = [requested_seat] if requested_seat else SEATS
+        candidate_seats = (
+            [requested_seat] if requested_seat else SEATS_BY_CLASS[travel_class]
+        )
         for seat in candidate_seats:
             overlap = execute(connection,
                 """
                 SELECT 1 FROM reservations
                 WHERE train = ? AND seat = ? AND journey_date = ?
+                  AND travel_class = ?
                   AND status = 'confirmed'
                   AND from_station < ? AND ? < to_station
                 LIMIT 1
                 """,
-                (train, seat, journey_date, end, start),
+                (train, seat, journey_date, travel_class, end, start),
             ).fetchone()
             if overlap is None:
                 booking_id = "RL" + secrets.token_hex(16).upper()
+                booked_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
                 execute(connection,
                     """
                     INSERT INTO reservations
                         (id, train, seat, from_station, to_station, journey_date,
-                         passenger_name, passenger_age, payment_method, status, is_sample)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 0)
+                         passenger_name, passenger_age, payment_method, travel_class,
+                         created_at, status, is_sample)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 0)
                     """,
-                    (booking_id, train, seat, start, end, journey_date, name, age, payment_method),
+                    (
+                        booking_id,
+                        train,
+                        seat,
+                        start,
+                        end,
+                        journey_date,
+                        name,
+                        age,
+                        payment_method,
+                        travel_class,
+                        booked_at,
+                    ),
                 )
                 connection.commit()
-                fare = max(120, (865 * (end - start) + 4) // (len(STATIONS) - 1))
+                fare = max(
+                    50,
+                    (
+                        865
+                        * SEAT_CLASSES[travel_class]["fare_percent"]
+                        * (end - start)
+                        + 50 * (len(STATIONS) - 1)
+                    )
+                    // (100 * (len(STATIONS) - 1)),
+                )
                 return {
                     "id": booking_id,
                     "train": train,
@@ -287,6 +396,9 @@ def create_booking(payload):
                     "from": start,
                     "to": end,
                     "date": journey_date,
+                    "travelClass": travel_class,
+                    "classLabel": SEAT_CLASSES[travel_class]["label"],
+                    "bookedAt": booked_at,
                     "name": name,
                     "age": age,
                     "paymentMethod": payment_method,

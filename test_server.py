@@ -1,6 +1,5 @@
 import tempfile
 import unittest
-from datetime import date
 from pathlib import Path
 
 import server
@@ -22,7 +21,7 @@ class SeatAllocationTests(unittest.TestCase):
             "train": server.TRAIN_NUMBER,
             "from": start,
             "to": end,
-            "date": date.today().isoformat(),
+            "date": server.today_in_india().isoformat(),
             "name": "Test passenger",
             "age": 30,
             "paymentMethod": "upi",
@@ -51,6 +50,63 @@ class SeatAllocationTests(unittest.TestCase):
             server.create_booking(request)
         self.assertEqual(error.exception.status, 409)
 
+    def test_seat_classes_have_independent_segment_availability(self):
+        ac_ticket = server.create_booking(self.booking_request(0, 2))
+        sleeper_request = self.booking_request(0, 2)
+        sleeper_request.update({"travelClass": "sleeper", "seat": "S1-01"})
+        sleeper_ticket = server.create_booking(sleeper_request)
+        self.assertEqual(ac_ticket["seat"], "B1-01")
+        self.assertEqual(sleeper_ticket["seat"], "S1-01")
+        self.assertEqual(sleeper_ticket["travelClass"], "sleeper")
+
+    def test_seat_must_belong_to_selected_class(self):
+        request = self.booking_request(0, 2)
+        request.update({"travelClass": "general", "seat": "B1-01"})
+        with self.assertRaises(server.RequestError):
+            server.create_booking(request)
+
+    def test_existing_database_is_migrated_to_class_and_booking_time(self):
+        legacy_path = Path(self.temp_dir.name) / "legacy.sqlite3"
+        server.DATABASE = legacy_path
+        connection = server.sqlite3.connect(legacy_path)
+        try:
+            connection.execute(
+                """
+                CREATE TABLE reservations (
+                    id TEXT PRIMARY KEY, train TEXT NOT NULL, seat TEXT NOT NULL,
+                    from_station INTEGER NOT NULL, to_station INTEGER NOT NULL,
+                    journey_date TEXT NOT NULL, passenger_name TEXT NOT NULL,
+                    passenger_age INTEGER, payment_method TEXT NOT NULL DEFAULT 'demo',
+                    status TEXT NOT NULL, is_sample INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO reservations
+                    (id, train, seat, from_station, to_station, journey_date,
+                     passenger_name, status)
+                VALUES ('legacy-ticket', ?, 'B1-12', 0, 1, ?, 'Legacy passenger', 'confirmed')
+                """,
+                (server.TRAIN_NUMBER, server.today_in_india().isoformat()),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        server.initialize_database()
+        with server.database() as connection:
+            row = server.execute(
+                connection,
+                "SELECT travel_class, created_at FROM reservations WHERE id = ?",
+                ("legacy-ticket",),
+            ).fetchone()
+        self.assertEqual(row["travel_class"], "3A")
+        self.assertEqual(row["created_at"], "")
+
+    def test_booking_includes_a_server_booking_timestamp(self):
+        ticket = server.create_booking(self.booking_request(0, 2))
+        self.assertTrue(ticket["bookedAt"].endswith("+00:00"))
+
     def test_public_availability_does_not_expose_ticket_or_passenger_details(self):
         state = server.get_state()
         self.assertNotIn("bookings", state)
@@ -63,6 +119,15 @@ class SeatAllocationTests(unittest.TestCase):
         server.cancel_booking(first["id"])
         second = server.create_booking(self.booking_request(0, 2))
         self.assertEqual(second["seat"], first["seat"])
+
+    def test_cancellation_releases_the_seat_in_its_selected_class(self):
+        request = self.booking_request(0, 2)
+        request["travelClass"] = "general"
+        first = server.create_booking(request)
+        server.cancel_booking(first["id"])
+        second = server.create_booking(request)
+        self.assertEqual(second["seat"], first["seat"])
+        self.assertEqual(second["travelClass"], "general")
 
     def test_unknown_payment_method_is_rejected(self):
         request = self.booking_request(0, 2)
