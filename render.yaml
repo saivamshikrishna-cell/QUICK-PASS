@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: quick-pass-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL
+        fromDatabase:
+          name: quick-pass-db
+          property: connectionString
+
+databases:
+  - name: quick-pass-db
+    databaseName: quick_pass
+    user: quick_pass_app
+    plan: free
