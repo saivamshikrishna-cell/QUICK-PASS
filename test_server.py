@@ -43,6 +43,28 @@ class SeatAllocationTests(unittest.TestCase):
         ticket = server.create_booking(request)
         self.assertEqual(ticket["seat"], "B1-08")
 
+    def test_booking_includes_berth_type_for_each_sleeper_position(self):
+        expected_types = {
+            "B1-01": "Lower berth",
+            "B1-02": "Middle berth",
+            "B1-03": "Upper berth",
+            "B1-07": "Side lower berth",
+            "B1-08": "Side upper berth",
+            "B1-16": "Side upper berth",
+        }
+        for seat, berth_type in expected_types.items():
+            request = self.booking_request(0, 1)
+            request["seat"] = seat
+            ticket = server.create_booking(request)
+            self.assertEqual(ticket["berthType"], berth_type)
+
+    def test_general_booking_is_labeled_as_a_reserved_seat(self):
+        request = self.booking_request(0, 1)
+        request["travelClass"] = "general"
+        request["seat"] = "G-01"
+        ticket = server.create_booking(request)
+        self.assertEqual(ticket["berthType"], "Reserved seat")
+
     def test_requested_seat_is_rejected_if_its_segment_is_occupied(self):
         request = self.booking_request(0, 8)
         request["seat"] = "B1-01"
@@ -113,12 +135,45 @@ class SeatAllocationTests(unittest.TestCase):
         self.assertTrue(state["reservations"])
         self.assertNotIn("id", state["reservations"][0])
         self.assertNotIn("name", state["reservations"][0])
+        self.assertEqual(state["cancellations"], [])
 
     def test_cancellation_releases_the_route_segment(self):
         first = server.create_booking(self.booking_request(0, 2))
         server.cancel_booking(first["id"])
         second = server.create_booking(self.booking_request(0, 2))
         self.assertEqual(second["seat"], first["seat"])
+
+    def test_cancellation_count_is_public_and_released_seat_can_be_rebooked(self):
+        request = self.booking_request(0, 2)
+        first = server.create_booking(request)
+        server.cancel_booking(first["id"])
+
+        state = server.get_state()
+        self.assertEqual(
+            state["cancellations"],
+            [{
+                "train": server.TRAIN_NUMBER,
+                "date": request["date"],
+                "travelClass": "3A",
+                "from": 0,
+                "to": 2,
+                "count": 1,
+            }],
+        )
+        self.assertNotIn("id", state["cancellations"][0])
+        self.assertNotIn("name", state["cancellations"][0])
+
+        second_request = {**request, "name": "Next passenger"}
+        second = server.create_booking(second_request)
+        self.assertEqual(second["seat"], first["seat"])
+        refreshed_state = server.get_state()
+        self.assertEqual(refreshed_state["cancellations"][0]["count"], 1)
+        self.assertTrue(any(
+            reservation["seat"] == first["seat"]
+            and reservation["from"] == request["from"]
+            and reservation["to"] == request["to"]
+            for reservation in refreshed_state["reservations"]
+        ))
 
     def test_cancellation_releases_the_seat_in_its_selected_class(self):
         request = self.booking_request(0, 2)

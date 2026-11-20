@@ -15,6 +15,16 @@ python server.py
 Open <http://127.0.0.1:8000>. Without `DATABASE_URL`, bookings are stored in
 `railway.sqlite3` beside `server.py`.
 
+## Public demo
+
+- Website: <https://quick-pass-demo.onrender.com>
+- Public source: <https://github.com/saivamshikrishna-cell/QUICK-PASS>
+
+The website is hosted by Render. To show it on Google Sites, create or open a
+Site, choose **Insert → Embed → By URL**, paste the website URL above, and
+publish the Site. Google Sites embeds the app; it does not host the Python
+server or database.
+
 ## Deploy on Render
 
 1. Push this folder to a GitHub repository and create a Render account.
@@ -44,18 +54,22 @@ after 30 days. Review Render's current limits and pricing before deploying;
 upgrade the database and service plans for persistent/production use. The
 database is connected privately to the app rather than exposed publicly.
 
+The source code is released under the MIT License; see [LICENSE](LICENSE).
+
 The app creates/updates its reservation table automatically at startup.
 `schema.sql` documents the equivalent SQL schema and lookup indexes.
 For local development with PostgreSQL, install `requirements.txt` and set
 `DATABASE_URL` in the server environment before running `python server.py`.
 
-The public availability API returns only seat/route data, not passenger names
-or ticket IDs. A passenger's booking list is kept in that browser's local
-storage; this prototype has no accounts, so tickets will not follow a user to
-another browser or device. A random PNR is required to cancel its booking.
-Do not use this sample app to store real passenger information or accept real
-payments without adding authentication, privacy controls, and an authorized
-payment provider.
+The public availability API returns seat/route data and aggregate cancellation
+counts, not passenger names, phone numbers, or ticket IDs. Booking details,
+including passenger name, age, and phone number, are kept in that browser's
+local storage; up to 20 unique phone numbers can be saved on a device and used
+to find that browser's saved tickets. Tickets and numbers do not sync across
+browsers or devices. Phone number alone is not secure identity verification;
+use lookup only on a private device. Do not use this sample app to store real
+passenger information or accept real payments without adding authentication,
+privacy controls, and an authorized payment provider.
 
 ## Demo behavior
 
@@ -65,15 +79,30 @@ payment provider.
 - Search supports General (GEN), Sleeper (SL), and AC 3 Tier (3A) demo classes.
   Each class has a separate seat inventory and indicative demo fare; General is
   treated as reserved seating in this prototype, not real unreserved rail travel.
-- The seat map marks booked and available seats; the server validates the
-  selected seat again when the demo checkout is submitted. Availability refreshes
-  every 15 seconds while the page is open.
+- The server validates each selected seat at checkout. Sleeper and AC show a
+  two-bay, 16-berth demo map with lower, middle, upper, side-lower, and side-upper
+  positions; General uses reserved demo seats without berth types. The map
+  highlights the selected coach, bay, and berth.
+- Search shows currently available seats and cancelled-seat totals for the
+  selected class, date, and overlapping route. Cancelling releases a seat for
+  any passenger to book; the available count drops again if it is rebooked.
+  Availability and cancellation totals refresh every 15 seconds while open.
 - Booking records the selected journey date, class, and server booking timestamp.
-  Ticket cancellation requires confirmation and releases that class's seat
-  segment in the configured SQLite or PostgreSQL inventory.
+  The search date defaults to India’s current date, blocks past dates, and the
+  live clock and ticket registration time are displayed in IST. Ticket
+  confirmation and history show the selected seat's berth type. Ticket
+  cancellation requires confirmation and releases that class's seat segment in
+  the configured SQLite or PostgreSQL inventory.
 - Checkout offers simulated UPI, card, and net banking methods. It does not
   collect payment credentials or process real money. Successful demo checkouts
   show a printable ticket confirmation with the PNR and allocated seat.
+- The ticket lookup can find and cancel active tickets saved in the current
+  browser by the booking mobile number. It accepts Indian 10-digit numbers with
+  optional `+91` or leading `0`; up to 20 unique numbers are stored per browser.
+  Railway security and medical assistance
+  is available through the official [RailMadad 139 helpline](https://railmadad.indianrailways.gov.in/madad/final/home.jsp).
+  Food ordering links to [IRCTC eCatering / Food on Track](https://www.ecatering.irctc.co.in/);
+  menu and delivery availability depend on the journey and PNR.
 - Train tracking shows a schedule-based position and current update time for
   the selected journey date. It is not a GPS feed: real train location,
   schedules, fares, payment processing, and ticket issuance require authorized

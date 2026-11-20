@@ -43,16 +43,26 @@ SEAT_CLASSES = {
     "sleeper": {
         "label": "Sleeper (SL)",
         "prefix": "S1",
-        "count": 12,
+        "count": 16,
         "fare_percent": 80,
     },
     "3A": {
         "label": "AC 3 Tier (3A)",
         "prefix": "B1",
-        "count": 12,
+        "count": 16,
         "fare_percent": 100,
     },
 }
+BERTH_TYPES = (
+    "Lower berth",
+    "Middle berth",
+    "Upper berth",
+    "Lower berth",
+    "Middle berth",
+    "Upper berth",
+    "Side lower berth",
+    "Side upper berth",
+)
 SEATS_BY_CLASS = {
     class_code: [
         f"{seat_class['prefix']}-{number:02d}"
@@ -238,6 +248,16 @@ def get_state():
             WHERE status = 'confirmed'
             """
         ).fetchall()
+        cancellations = execute(
+            connection,
+            """
+            SELECT train, journey_date, travel_class, from_station, to_station,
+                   COUNT(*) AS cancelled_count
+            FROM reservations
+            WHERE status = 'cancelled' AND is_sample = 0
+            GROUP BY train, journey_date, travel_class, from_station, to_station
+            """,
+        ).fetchall()
 
     def as_reservation(row):
         return {
@@ -250,7 +270,27 @@ def get_state():
             "status": row["status"],
         }
 
-    return {"reservations": [as_reservation(row) for row in reservations]}
+    def as_cancellation(row):
+        return {
+            "train": row["train"],
+            "date": row["journey_date"],
+            "travelClass": row["travel_class"],
+            "from": row["from_station"],
+            "to": row["to_station"],
+            "count": row["cancelled_count"],
+        }
+
+    return {
+        "reservations": [as_reservation(row) for row in reservations],
+        "cancellations": [as_cancellation(row) for row in cancellations],
+    }
+
+
+def berth_type_for_seat(travel_class, seat):
+    if travel_class == "general":
+        return "Reserved seat"
+    number = int(seat.rsplit("-", 1)[1])
+    return BERTH_TYPES[(number - 1) % len(BERTH_TYPES)]
 
 
 def validate_booking(payload):
@@ -398,6 +438,7 @@ def create_booking(payload):
                     "date": journey_date,
                     "travelClass": travel_class,
                     "classLabel": SEAT_CLASSES[travel_class]["label"],
+                    "berthType": berth_type_for_seat(travel_class, seat),
                     "bookedAt": booked_at,
                     "name": name,
                     "age": age,
